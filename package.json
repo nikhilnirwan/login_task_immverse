@@ -10,10 +10,9 @@
     "prd": "node server.js",
     "delete": "node helpers/deleteDb.js"
   },
-  
   "author": "",
   "license": "ISC",
- 
+  "dependencies": {
     "aws-sdk": "^2.1221.0",
     "axios": "^1.1.3",
     "bcrypt": "^5.0.1",
