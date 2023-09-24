@@ -1,31 +1,24 @@
 // THIRD PARTY MODULES
 const path = require("path");
+require("dotenv").config("config.env");
 const bodyParser = require("body-parser");
 const cookieParser = require("cookie-parser");
 const cors = require("cors");
 const util = require("util");
-const logger = require("morgan");
 // CORE MODULES
 const express = require("express");
 
 // SELF MODULES
 const UserAuthRouter = require("./route/userAuthRoute");
+const productRoute = require("./route/productRoute");
 
-const requestBodyLogger = require(path.join(__dirname, "helpers", "winstonLogger"));
+const requestBodyLogger = require("./helpers/winstonLogger");
 
-const globalErrorHandler = require(path.join(__dirname, "utils", "globalErrorHandler"));
 const app = express();
 
-app.disable("etag");
-app.use(logger("dev"));
-// app.use(cors({ credentials: true, origin: whiteList }));
 app.options("*", cors());
 app.use(cookieParser());
-app.set("view engine", "pug");
-app.set("views", path.join(__dirname, "views"));
-
-app.use(bodyParser.json());
-app.use(bodyParser.urlencoded({ extended: true }));
+app.use(express.json());
 
 app.use("*", (req, res, next) => {
   requestBodyLogger.info(
@@ -40,16 +33,13 @@ app.use("*", (req, res, next) => {
   );
   next();
 });
-
-// GET DOCUMENT ROUTE
-app.use("/auth", UserAuthRouter);
-
-// LANDING PAGE
-
-app.use(globalErrorHandler);
-app.use("*", (req, res, next) => {
-  res.status(404).json({
-    message: "API REQUEST NOT FOUND!!",
-  });
+app.get("/", (req, res) => {
+  const message = "Hello word";
+  res.send({ message });
+  // console.log("Hello word");
 });
+
+app.use("/auth", UserAuthRouter);
+app.use("/product", productRoute);
+
 module.exports = app;

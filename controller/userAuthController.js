@@ -1,12 +1,13 @@
 const path = require("path");
 const jwt = require("jsonwebtoken");
-const multer = require("multer");
+require("dotenv").config({ path: path.join(__dirname, "..", "config.env") });
+
 const { promisify } = require("util");
-const generateOtp = require(path.join(__dirname, "..", "helpers", "generateOtp"));
-const catchAsync = require(path.join(__dirname, "..", "utils", "catchAsync"));
-const AppErr = require(path.join(__dirname, "..", "utils", "AppErr"));
-const encryptPassword = require(path.join(__dirname, "..", "helpers", "encryptPassword"));
-const User = require(path.join(__dirname, "..", "model", "userModel"));
+const generateOtp = require("../helpers/generateOtp");
+const catchAsync = require("../utils/catchAsync");
+const AppErr = require("../utils/AppErr");
+const encryptPassword = require("../helpers/encryptPassword");
+const User = require("../model/userModel");
 
 const signToken = (id) => {
   return jwt.sign({ id: id }, process.env.JWT_SECRET, {
@@ -35,41 +36,23 @@ const createSendToken = (user, statusCode, res) => {
 //
 // SIGNUP
 exports.signup = catchAsync(async (req, res, next) => {
-  const { name, password, emailId, mobileNumber } = req.body;
-  if (!name || !emailId || !mobileNumber || !password) {
-    return next(new AppErr("Please Provide all the details to create user", 400));
-  }
+  const { fistName, lastName, DOB, email, password, country, userType } = req.body;
+
   // CHECK IF USER ALREADY EXISTS
-  const userDoc = await User.findOne({
-    $and: [{ "email.emailId": emailId }, { "mobile.mobileNumber": mobileNumber }],
-  }).select("+password");
-  if (userDoc && !userDoc?.email?.isEmailVerified) {
-    await generateOtp("password", userDoc, "please verify your email", "complete your Sign Up procedures");
-    userDoc.password = undefined;
-    return res.status(200).json({
-      status: "success",
-      message: "User Exists With The Provided Email Id, An OTP Has Been Sent To The Registered Email",
-      user: userDoc,
-      data: {
-        duplicateUser: true,
-      },
-    });
-  }
-  if (userDoc && userDoc?.email?.isEmailVerified)
-    return next(new AppErr("User Already Exists with verified email, Please Login to continue", 400));
-  // CANDIDATE
-  if (await User.findOne({ "email.emailId": emailId })) {
-    return next(new AppErr("User Already Exists, Please Login to continue", 400));
-  }
+  // const userDoc = await User.findOne({ email: email }).select("+password");
+
   const hashedPassword = await encryptPassword.hashPassword(password);
   const doc = await User.create({
-    name,
+    fistName: fistName,
+    lastName: lastName,
+    DOB: DOB,
     password: hashedPassword,
-    email: { emailId },
-    mobile: { mobileNumber },
+    email: email,
+    country: country,
+    userType: userType,
   });
 
-  await generateOtp("password", doc, "[SL WORLD JOBS] Please Verify Your Email", "complete your Sign Up procedures");
+  // await generateOtp("email", doc, "Otp send successfully");
   doc.password = undefined;
   res.status(200).json({
     status: "success",
@@ -81,27 +64,19 @@ exports.signup = catchAsync(async (req, res, next) => {
 exports.loginWithPassword = catchAsync(async (req, res, next) => {
   // TODO:NO LOGIN TILL EMAIL VERIFIED
   const { email, password } = req.body;
-  if (!email || !password) {
-    return next(new AppErr("Please Provide all the details to create user", 400));
-  }
-  let doc = await User.findOne({ "email.emailId": email }).select("+password");
+
+  let doc = await User.findOne({ email: email }).select("+password");
   if (!doc) return next(new AppErr("Mobile is Incorrect", 400));
   if (!(await encryptPassword.unHashPassword(password, doc.password))) {
     return next(new AppErr("Password is Incorrect", 400));
   }
-  // if (!doc?.email?.isEmailVerified) return next(new AppErr("Please Verify Your Email Address To Login", 401));//
   createSendToken(doc, 200, res);
 });
 
 //PROTECT route to chake user is login or not
 exports.protect = catchAsync(async (req, res, next) => {
-  //1) Getting the tocken and check is it exist
   let token;
-  if (
-    // autharization = "Bearer TOKEN_STRING"
-    req?.headers?.authorization &&
-    req?.headers?.authorization?.startsWith("Bearer")
-  ) {
+  if (req?.headers?.authorization && req?.headers?.authorization?.startsWith("Bearer")) {
     token = req?.headers?.authorization?.split(" ")[1];
   } else if (req?.cookies?.jwt) {
     token = req?.cookies?.jwt;
@@ -110,94 +85,29 @@ exports.protect = catchAsync(async (req, res, next) => {
   if (!token) {
     return next(new AppErr("You are not logged  in!!! Please log in to get access.", 401));
   }
-
-  //2) Validate token
   const decoded = await promisify(jwt.verify)(token, process.env.JWT_SECRET);
-
-  //3) Get if user still exists
 
   const id = decoded?.id?.split("--")[1];
   if (!id) return next(new AppErr("JWT Malformed"), 401);
   const currentUser = await User.findById(id);
+  console.log("currentUser", currentUser);
 
   if (!currentUser) {
     return next(new AppErr(" The user blonging to this token no longer exists", 401));
   }
 
-  //4) Check if user change password after the token was issued
-  if (currentUser.changePasswordAfter(decoded.iat)) {
-    return next(new AppErr("App user recently changed password! Please log in again", 401));
-  }
-  // Grant access to protected route
+  // if (currentUser?.changePasswordAfter(decoded.iat)) {
+  //   return next(new AppErr("App user recently changed password! Please log in again", 401));
+  // }
   req.user = currentUser;
   req.identity = id;
   next();
 });
 
-// FORGOT PASSWORD STAGES
-// 1) verify email
-exports.forgotPwdGenerateOtp = catchAsync(async (req, res, next) => {
-  const { email } = req.body;
-  if (!email) {
-    res.status(400).json({
-      status: "fail",
-      data: {
-        message: "Please Provide All The Details",
-      },
-    });
-  }
-  const user = await User.findOne({ "email.emailId": email });
-  if (!user) return next(new AppErr("Account Not Found"), 400);
-  await generateOtp("password", user, "OTP for password change", "Reset Your Password");
-  res.status(200).json({
-    status: "success",
-    data: {
-      verificationToken: user.verificationToken,
-      message: "An OTP has been sent,Please Verify OTP To Reset The Password",
-    },
-  });
-});
-// 2) verify otp email
-exports.forgotPwdVerifyOtp = catchAsync(async (req, res, next) => {
-  const { otp, email } = req.body;
-  if (!email) {
-    res.status(400).json({
-      status: "fail",
-      data: {
-        message: "Please Provide All The Details",
-      },
-    });
-  }
-
-  const doc = await User.findOne({ "email.emailId": email });
-  if (!doc) return next(new AppErr("Account Not Found"), 400);
-  // check if token is present
-  if (!doc?.verificationToken?.passwordToken && !doc?.verificationToken?.passwordTokenExpiry)
-    return next(new AppErr("Token Not Issued, Route Is FORBIDDEN", 403));
-  // check if time expired
-  const currDate = new Date(Date.now());
-  if (doc?.verificationToken?.passwordTokenExpiry < currDate) return next(new AppErr("OTP Expired", 400));
-  // verify otp
-  if (!(doc?.verificationToken?.passwordToken === otp)) return next(new AppErr("OTP Entered Is Incorrect", 400));
-  // update token fields in document
-  doc.verificationToken.passwordToken = undefined;
-  doc.verificationToken.passwordTokenExpiry = undefined;
-  doc.email.isEmailVerified = true;
-  await doc.save();
-  res.status(200).json({
-    status: "success",
-    data: {
-      message: "User Email Verified",
-      doc,
-    },
-  });
-  createSendToken(doc, 200, res);
-});
-
 exports.resetPassword = catchAsync(async (req, res, next) => {
-  // const user = req.user;
   const { email, password } = req.body;
-  const user = await User.findOne({ "email.emailId": email });
+  const user = await User.findOne({ email: email });
+  console.log(user);
 
   const hashedPassword = await encryptPassword.hashPassword(password);
   user.password = hashedPassword;
@@ -220,10 +130,34 @@ exports.logout = catchAsync(async (req, res, next) => {
   });
 });
 
-// get user
+// get user using regex
 exports.getUserProfile = catchAsync(async (req, res, next) => {
   const user = req.user;
+  console.log("user", user);
   const data = await User.findOne({ _id: user._id });
+  res.status(200).json({
+    status: "success",
+    data,
+  });
+});
+
+// get user using regex search query
+exports.getUserProfileRegex = catchAsync(async (req, res, next) => {
+  const user = req.user;
+  console.log("user", user);
+  const search = req.body.search;
+  const data = await User.find(/*{ fistName: { $regex: search } }*/ search);
+  res.status(200).json({
+    status: "success",
+    data,
+  });
+});
+
+//db.employee.find({position : {$regex : "developer"}}).pretty()
+
+// get user
+exports.getAllUser = catchAsync(async (req, res, next) => {
+  const data = await User.paginate(req.body.query, req.body.options);
   res.status(200).json({
     status: "success",
     data,
