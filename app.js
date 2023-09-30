@@ -1,7 +1,5 @@
 // THIRD PARTY MODULES
-const path = require("path");
 require("dotenv").config("config.env");
-const bodyParser = require("body-parser");
 const cookieParser = require("cookie-parser");
 const cors = require("cors");
 const util = require("util");
@@ -36,7 +34,6 @@ app.use("*", (req, res, next) => {
 app.get("/", (req, res) => {
   const message = "Hello word";
   res.send({ message });
-  // console.log("Hello word");
 });
 
 app.use("/auth", UserAuthRouter);

@@ -38,9 +38,6 @@ const createSendToken = (user, statusCode, res) => {
 exports.signup = catchAsync(async (req, res, next) => {
   const { fistName, lastName, DOB, email, password, country, userType } = req.body;
 
-  // CHECK IF USER ALREADY EXISTS
-  // const userDoc = await User.findOne({ email: email }).select("+password");
-
   const hashedPassword = await encryptPassword.hashPassword(password);
   const doc = await User.create({
     fistName: fistName,
@@ -62,7 +59,6 @@ exports.signup = catchAsync(async (req, res, next) => {
 
 // LOGIN with id and password
 exports.loginWithPassword = catchAsync(async (req, res, next) => {
-  // TODO:NO LOGIN TILL EMAIL VERIFIED
   const { email, password } = req.body;
 
   let doc = await User.findOne({ email: email }).select("+password");
@@ -90,15 +86,11 @@ exports.protect = catchAsync(async (req, res, next) => {
   const id = decoded?.id?.split("--")[1];
   if (!id) return next(new AppErr("JWT Malformed"), 401);
   const currentUser = await User.findById(id);
-  console.log("currentUser", currentUser);
 
   if (!currentUser) {
-    return next(new AppErr(" The user blonging to this token no longer exists", 401));
+    return next(new AppErr(" The user belonging to this token no longer exists", 401));
   }
 
-  // if (currentUser?.changePasswordAfter(decoded.iat)) {
-  //   return next(new AppErr("App user recently changed password! Please log in again", 401));
-  // }
   req.user = currentUser;
   req.identity = id;
   next();
@@ -125,7 +117,7 @@ exports.logout = catchAsync(async (req, res, next) => {
   res.status(200).json({
     status: "success",
     data: {
-      message: "User Successfully Logged Out",
+      message: "User successfully logged out",
     },
   });
 });
@@ -133,7 +125,6 @@ exports.logout = catchAsync(async (req, res, next) => {
 // get user using regex
 exports.getUserProfile = catchAsync(async (req, res, next) => {
   const user = req.user;
-  console.log("user", user);
   const data = await User.findOne({ _id: user._id });
   res.status(200).json({
     status: "success",
@@ -143,23 +134,40 @@ exports.getUserProfile = catchAsync(async (req, res, next) => {
 
 // get user using regex search query
 exports.getUserProfileRegex = catchAsync(async (req, res, next) => {
-  const user = req.user;
-  console.log("user", user);
   const search = req.body.search;
-  const data = await User.find(/*{ fistName: { $regex: search } }*/ search);
+  const data = await User.find(search);
   res.status(200).json({
     status: "success",
     data,
   });
 });
 
-//db.employee.find({position : {$regex : "developer"}}).pretty()
-
-// get user
+// get all user
 exports.getAllUser = catchAsync(async (req, res, next) => {
   const data = await User.paginate(req.body.query, req.body.options);
   res.status(200).json({
     status: "success",
     data,
+  });
+});
+
+exports.updateUser = catchAsync(async (req, res, next) => {
+  const user = req.user;
+  console.log("user", user._id);
+  if (req.body?.password) {
+    req.body.password = await encryptPassword.hashPassword(req.body.password);
+  }
+  const updateDetail = await User.findByIdAndUpdate(
+    { _id: user._id },
+    { ...req.body },
+    { runValidator: true, useFindAndModify: false, new: true }
+  );
+  await updateDetail.save();
+  res.status(200).json({
+    status: "success",
+    data: {
+      message: "User details update Successfully.",
+      updateDetail,
+    },
   });
 });

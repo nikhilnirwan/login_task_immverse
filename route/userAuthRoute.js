@@ -10,5 +10,6 @@ router.use(userAuthController.protect);
 router.get("/getUserProfile", userAuthController.getUserProfile);
 router.get("/getUsereRejex", userAuthController.getUserProfileRegex);
 router.get("/getAllUser", userAuthController.getAllUser);
+router.put("/update", userAuthController.updateUser);
 
 module.exports = router;

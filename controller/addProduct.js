@@ -1,13 +1,10 @@
-const jwt = require("jsonwebtoken");
 const catchAsync = require("../utils/catchAsync");
-const AppErr = require("../utils/AppErr");
-const User = require("../model/userModel");
 const Product = require("../model/productModel");
 
 exports.addProduct = catchAsync(async (req, res, next) => {
   const { id, productName, productPrice, productImage } = req.body;
 
-  const data = await Product.create({
+  await Product.create({
     productName: productName,
     productPrice: productPrice,
     productImage: productImage,
@@ -38,14 +35,14 @@ exports.getAllProduct = catchAsync(async (req, res, next) => {
   res.status(200).json({
     status: "success",
     data: {
-      message: "Product get Successfully",
+      message: "Product get Successfully.",
       getProduct,
     },
   });
 });
 
 exports.updateProduct = catchAsync(async (req, res, next) => {
-  const { id, productName, productPrice, productImage } = req.body;
+  const { id } = req.body;
   const getProduct = await Product.findByIdAndUpdate(
     { _id: id },
     { ...req.body },
@@ -55,7 +52,7 @@ exports.updateProduct = catchAsync(async (req, res, next) => {
   res.status(200).json({
     status: "success",
     data: {
-      message: "Product Update Successfully",
+      message: "Product Update Successfully.",
       getProduct,
     },
   });
@@ -63,13 +60,12 @@ exports.updateProduct = catchAsync(async (req, res, next) => {
 
 exports.deleteProduct = catchAsync(async (req, res, next) => {
   const { id } = req.query;
-  const deleteProduct = await Product.remove({ _id: id });
+  await Product.remove({ _id: id });
 
   res.status(200).json({
     status: "success",
     data: {
-      message: "Product Update Successfully",
-      deleteProduct,
+      message: "Product delete successfully.",
     },
   });
 });
