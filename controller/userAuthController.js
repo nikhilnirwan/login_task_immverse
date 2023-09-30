@@ -99,8 +99,6 @@ exports.protect = catchAsync(async (req, res, next) => {
 exports.resetPassword = catchAsync(async (req, res, next) => {
   const { email, password } = req.body;
   const user = await User.findOne({ email: email });
-  console.log(user);
-
   const hashedPassword = await encryptPassword.hashPassword(password);
   user.password = hashedPassword;
   user.passwordChangedAt = Date.now() - 1 * 60 * 100;
@@ -153,7 +151,6 @@ exports.getAllUser = catchAsync(async (req, res, next) => {
 
 exports.updateUser = catchAsync(async (req, res, next) => {
   const user = req.user;
-  console.log("user", user._id);
   if (req.body?.password) {
     req.body.password = await encryptPassword.hashPassword(req.body.password);
   }
