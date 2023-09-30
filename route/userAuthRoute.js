@@ -11,5 +11,6 @@ router.get("/getUserProfile", userAuthController.getUserProfile);
 router.get("/getUsereRejex", userAuthController.getUserProfileRegex);
 router.get("/getAllUser", userAuthController.getAllUser);
 router.put("/update", userAuthController.updateUser);
+router.delete("/delete", userAuthController.deleteUser);
 
 module.exports = router;

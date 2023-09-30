@@ -51,10 +51,7 @@ exports.signup = catchAsync(async (req, res, next) => {
 
   // await generateOtp("email", doc, "Otp send successfully");
   doc.password = undefined;
-  res.status(200).json({
-    status: "success",
-    user: doc,
-  });
+  createSendToken(doc, 200, res);
 });
 
 // LOGIN with id and password
@@ -165,6 +162,19 @@ exports.updateUser = catchAsync(async (req, res, next) => {
     data: {
       message: "User details update Successfully.",
       updateDetail,
+    },
+  });
+});
+
+exports.deleteUser = catchAsync(async (req, res, next) => {
+  const user = req.user;
+
+  await User.remove({ _id: user._id });
+
+  res.status(200).json({
+    status: "success",
+    data: {
+      message: "User delete successfully.",
     },
   });
 });
